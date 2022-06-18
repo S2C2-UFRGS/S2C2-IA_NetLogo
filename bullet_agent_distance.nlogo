@@ -41,9 +41,17 @@ to go
     face car 1
   ]
 
-  shoot
-  bullet-loop
-  ;if the car is alive, keep it roading
+
+  ; x=
+
+
+
+
+
+
+
+
+
   ask cars [
     if alive = true [
       facexy 70 100
@@ -52,6 +60,32 @@ to go
   ]
   tick
 end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 to shoot
   set d_shoot 10 ;shoot distance
