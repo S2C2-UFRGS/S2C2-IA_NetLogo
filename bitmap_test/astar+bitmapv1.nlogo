@@ -3,12 +3,6 @@ extensions [bitmap]
 breed [tanks tank]
 breed [enemies enemy]
 
-tanks-own[
-  start-posx ;; starting position for A* for each tank X
-  start-posy ;; starting position for A* for each tank Y
-]
-
-
 globals
 [
   p-valids   ; Valid Patches for moving not wall)
@@ -103,8 +97,6 @@ to-report getGoalY
   ]
   report ycorGoal
 end
-
-
 
 to-report Total-expected-cost [#Goal]
   report Cost-path + Heuristic #Goal
@@ -215,21 +207,17 @@ to-report A* [#Start #Goal #valid-map]
   ]
 end
 
-
-
-
 to go
   tick
   ifelse begun = 0 [
     set path  A* Start Goal p-valids
     set begun 1
     pathmap
-
-  ][
+  ]
+  [
     if path != [] and path != false [
       ask tank 0 [
     face first path
-
     ifelse distance first path < 1
     [
       fd distance first path
@@ -241,11 +229,7 @@ to go
     ]
   ]
   ]
-
-
-
 end
-
 
 to pathmap
   foreach path [trace -> ask trace[set pcolor grey]]
