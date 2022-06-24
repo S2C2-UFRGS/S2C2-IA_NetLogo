@@ -1,10 +1,22 @@
 extensions [bitmap]
 
+breed [tanks tank]
+breed [enemies enemy]
+
+tanks-own[
+  start-posx ;; starting position for A* for each tank X
+  start-posy ;; starting position for A* for each tank Y
+]
+
+
 globals
 [
   p-valids   ; Valid Patches for moving not wall)
   Start      ; Starting patch
   Final-Cost ; The final cost of the path given by A*
+  Goal
+  begun
+  path
 ]
 
 patches-own
@@ -35,15 +47,63 @@ to setup
   ]
   set p-valids patches with [((pcolor = black) and (pxcor > 26 and pxcor < 94) and (pycor > 29 and pycor < 92)) ]
   set Start one-of p-valids
-  ask Start [set pcolor white]
-  crt 1
+  ask Start [
+    set pcolor black]
+
+  create-tanks 1
   [
-    ht
-    set size 1
-    set pen-size 2
-    set shape "square"
+    set color blue
+    set size 2
+    set shape "tank"
+    set xcor getStartX
+    set ycor getStartY
   ]
+  set Goal one-of p-valids
+  ask Goal[set pcolor red ]
+
+  create-enemies 1[
+    set color red
+    set size 2
+    set shape "tank"
+    set xcor getGoalX
+    set ycor getGoalY
+  ]
+
+  set begun 0
 end
+
+to-report getStartX
+  let xcorStart 0
+  ask Start[
+    set xcorStart pxcor
+  ]
+  report xcorStart
+end
+
+to-report getStartY
+  let ycorStart 0
+  ask Start[
+    set ycorStart pycor
+  ]
+  report ycorStart
+end
+
+to-report getGoalX
+  let xcorGoal 0
+  ask Goal[
+    set xcorGoal pxcor
+  ]
+  report xcorGoal
+end
+
+to-report getGoalY
+  let ycorGoal 0
+  ask Goal[
+    set ycorGoal pycor
+  ]
+  report ycorGoal
+end
+
 
 
 to-report Total-expected-cost [#Goal]
@@ -156,27 +216,41 @@ to-report A* [#Start #Goal #valid-map]
 end
 
 
-to Look-for-Goal
-  ; Take one random Goal
-  let Goal patch 55 89
-  ask Goal[
-    set pcolor red
+
+
+to go
+  tick
+  ifelse begun = 0 [
+    set path  A* Start Goal p-valids
+    set begun 1
+    pathmap
+
+  ][
+    if path != [] and path != false [
+      ask tank 0 [
+    face first path
+
+    ifelse distance first path < 1
+    [
+      fd distance first path
+      set path remove-item 0 path
+    ]
+    [
+      fd 1
+    ]
+    ]
   ]
-  ;let Goal one-of p-valids
-  ; Compute the path between Start and Goal
-  let path  A* Start Goal p-valids
-  ; If any...
-  if path != false [
-    ; Take a random color to the drawer turtle
-    ask turtle 0 [set color (lput 150 (n-values 3 [100 + random 155]))]
-    ; Move the turtle on the path stamping its shape in every patch
-    foreach path [ ?1 ->
-      ask turtle 0 [
-        move-to ?1
-        stamp] ]
-    ; Set the Goal and the new Start point
-    set Start Goal
   ]
+
+
+
+end
+
+
+to pathmap
+  foreach path [trace -> ask trace[set pcolor grey]]
+  ask Start [set pcolor white]
+  ask Goal [set pcolor red]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -207,10 +281,10 @@ ticks
 30.0
 
 BUTTON
-33
-603
-96
-636
+35
+746
+98
+779
 NIL
 setup
 NIL
@@ -224,13 +298,13 @@ NIL
 1
 
 BUTTON
-128
-614
-191
-647
-next
-Look-for-goal
+125
+747
+188
+780
 NIL
+go
+T
 1
 T
 OBSERVER
