@@ -15,6 +15,7 @@ globals
   estradas-dataset
   agua-dataset
   relevo-dataset
+  rel_trans-dataset
 ]
 
 tanks-own[
@@ -40,23 +41,27 @@ to setup-map
   gis:load-coordinate-system "./data/gis_map/estradas.prj"
 
   set estradas-dataset gis:load-dataset "./data/gis_map/estradas.shp"
-  set agua-dataset gis:load-dataset "./data/gis_map/agua.shp"
+  set agua-dataset gis:load-dataset "./data/gis_map/corpos_dagua.shp"
   set relevo-dataset gis:load-dataset "./data/gis_map/relevos.shp"
+  set rel_trans-dataset gis:load-dataset "./data/gis_map/rel_trans.shp"
   gis:set-world-envelope gis:envelope-of estradas-dataset
 
 
   gis:set-drawing-color black
   gis:draw estradas-dataset 10
 
-  gis:set-drawing-color blue
+  gis:set-drawing-color cyan
   gis:draw agua-dataset 1
 
   gis:set-drawing-color brown
   gis:draw relevo-dataset 1
 
+  gis:set-drawing-color grey
+  gis:draw rel_trans-dataset 1
+
   show gis:property-names estradas-dataset
   show gis:feature-list-of estradas-dataset
-  import-drawing "./data/background_campo.png"
+  ;import-drawing "./data/background_campo.png"
 
   reset-ticks
 
@@ -69,6 +74,8 @@ to setup-map
   ask patches gis:intersecting relevo-dataset
   [ set pcolor brown]
 
+  ask patches gis:intersecting rel_trans-dataset
+  [ set pcolor grey]
 
   ; Initial values of patches for A*
   ask patches
@@ -78,7 +85,7 @@ to setup-map
     set visited? false
     set active? false
   ]
-  set p-valids patches with [pcolor = green or pcolor = brown]
+  set p-valids patches with [pcolor = green or pcolor = grey]
   set Start patch 30 60
   ask Start [
     set pcolor white ]
@@ -87,7 +94,7 @@ to setup-map
   [
     set color blue
     set size 8
-    set shape "tank"
+    set shape "calunga_tank_ally"
     set xcor getStartX
     set ycor getStartY
     set velocity 1
@@ -98,7 +105,7 @@ to setup-map
   create-enemies 1[
     set color red
     set size 8
-    set shape "tank"
+    set shape "calunga_tank_enemy"
     set xcor getGoalX
     set ycor getGoalY
   ]
@@ -431,6 +438,55 @@ Polygon -16777216 true false 150 255 135 225 120 150 135 120 150 105 165 120 180
 Circle -16777216 true false 135 90 30
 Line -16777216 false 150 105 195 60
 Line -16777216 false 150 105 105 60
+
+calunga_arp
+false
+0
+Polygon -7500403 true true 240 270 240 225 225 150 180 90 150 75 150 300 240 300 240 270
+Polygon -7500403 true true 60 270 60 225 75 150 120 90 150 75 150 300 60 300 60 270
+Polygon -7500403 true true 90 165 90 165 90 165
+Polygon -16777216 true false 210 180 210 195 150 225 150 210 210 180
+Polygon -16777216 true false 90 180 90 195 150 225 150 210 90 180
+Polygon -16777216 true false 141 105 141 149 149 148 149 126 156 125 160 124 162 118 161 111 157 106 153 105 150 105 146 105
+Polygon -16777216 true false 146 111
+Polygon -7500403 true true 156 115
+Polygon -7500403 true true 147 111 147 121 153 121 156 117 155 111 151 110
+
+calunga_tank_ally
+false
+0
+Rectangle -7500403 true true 45 90 255 225
+Line -16777216 false 45 225 255 90
+Circle -16777216 true false 90 45 30
+Circle -16777216 true false 135 45 30
+Circle -16777216 true false 180 45 30
+Line -16777216 false 90 120 210 120
+Line -16777216 false 90 120 75 135
+Line -16777216 false 75 135 75 165
+Line -16777216 false 75 165 75 180
+Line -16777216 false 75 180 90 195
+Line -16777216 false 90 195 210 195
+Line -16777216 false 225 165 225 180
+Line -16777216 false 225 135 225 165
+Line -16777216 false 210 120 225 135
+Line -16777216 false 210 195 225 180
+
+calunga_tank_enemy
+false
+0
+Polygon -7500403 true true 150 45 45 150 150 255 255 150 150 45
+Line -16777216 false 195 180 105 180
+Line -16777216 false 105 120 195 120
+Line -16777216 false 195 180 210 165
+Line -16777216 false 210 135 210 165
+Line -16777216 false 195 120 210 135
+Line -16777216 false 90 135 90 165
+Line -16777216 false 105 180 90 165
+Line -16777216 false 105 120 90 135
+Line -16777216 false 98 204 204 98
+Circle -16777216 true false 93 13 24
+Circle -16777216 true false 136 12 24
+Circle -16777216 true false 174 12 24
 
 car
 false

@@ -1,298 +1,10 @@
-extensions [gis]
 
-breed [tanks tank]
-breed [enemies enemy]
-
-globals
-[
-  p-valids   ; Valid Patches for moving not wall)
-  Start      ; Starting patch
-  Final-Cost ; The final cost of the path given by A*
-  Goal
-  begun
-  path
-
-  estradas-dataset
-  agua-dataset
-  relevo-dataset
-]
-
-tanks-own[
-velocity
-]
-
-
-patches-own
-[
-  father     ; Previous patch in this partial path
-  Cost-path  ; Stores the cost of the path to the current patch
-  visited?   ; has the path been visited previously? That is,
-             ; at least one path has been calculated going through this patch
-  active?    ; is the patch active? That is, we have reached it, but
-             ; we must consider it because its children have not been explored
-]
-
-
-
-to setup-map
-  clear-all
-
-  gis:load-coordinate-system "./data/gis_map/estradas.prj"
-
-  set estradas-dataset gis:load-dataset "./data/gis_map/estradas.shp"
-  set agua-dataset gis:load-dataset "./data/gis_map/agua.shp"
-  set relevo-dataset gis:load-dataset "./data/gis_map/relevos.shp"
-  gis:set-world-envelope gis:envelope-of estradas-dataset
-
-
-  gis:set-drawing-color black
-  gis:draw estradas-dataset 10
-
-  gis:set-drawing-color blue
-  gis:draw agua-dataset 1
-
-  gis:set-drawing-color brown
-  gis:draw relevo-dataset 1
-
-  show gis:property-names estradas-dataset
-  show gis:feature-list-of estradas-dataset
-  import-drawing "./data/background_campo.png"
-
-  reset-ticks
-
-  ask patches[
-    set pcolor green
-  ]
-  ask patches gis:intersecting agua-dataset
-  [ set pcolor cyan ]
-
-  ask patches gis:intersecting relevo-dataset
-  [ set pcolor brown]
-
-
-  ; Initial values of patches for A*
-  ask patches
-  [
-    set father nobody
-    set Cost-path 0
-    set visited? false
-    set active? false
-  ]
-  set p-valids patches with [pcolor = green or pcolor = brown]
-  set Start patch 30 60
-  ask Start [
-    set pcolor white ]
-
-  create-tanks 1
-  [
-    set color blue
-    set size 8
-    set shape "tank"
-    set xcor getStartX
-    set ycor getStartY
-    set velocity 1
-  ]
-  set Goal patch 100 60
-  ask Goal[set pcolor red ]
-
-  create-enemies 1[
-    set color red
-    set size 8
-    set shape "tank"
-    set xcor getGoalX
-    set ycor getGoalY
-  ]
-
-  set begun 0
-end
-
-to-report getStartX
-  let xcorStart 0
-  ask Start[
-    set xcorStart pxcor
-  ]
-  report xcorStart
-end
-
-to-report getStartY
-  let ycorStart 0
-  ask Start[
-    set ycorStart pycor
-  ]
-  report ycorStart
-end
-
-to-report getGoalX
-  let xcorGoal 0
-  ask Goal[
-    set xcorGoal pxcor
-  ]
-  report xcorGoal
-end
-
-to-report getGoalY
-  let ycorGoal 0
-  ask Goal[
-    set ycorGoal pycor
-  ]
-  report ycorGoal
-end
-
-to-report Total-expected-cost [#Goal]
-  report Cost-path + Heuristic #Goal
-end
-
-to-report Heuristic [#Goal]
-  report distance #Goal
-end
-
-; A* algorithm. Inputs:
-;   - #Start     : starting point of the search.
-;   - #Goal      : the goal to reach.
-;   - #valid-map : set of agents (patches) valid to visit.
-; Returns:
-;   - If there is a path : list of the agents of the path.
-;   - Otherwise          : false
-
-to-report A* [#Start #Goal #valid-map]
-  ; clear all the information in the agents
-  ask #valid-map with [visited?]
-  [
-    set father nobody
-    set Cost-path 0
-    set visited? false
-    set active? false
-  ]
-  ; Active the staring point to begin the searching loop
-  ask #Start
-  [
-    set father self
-    set visited? true
-    set active? true
-  ]
-  ; exists? indicates if in some instant of the search there are no options to
-  ; continue. In this case, there is no path connecting #Start and #Goal
-  let exists? true
-  ; The searching loop is executed while we don't reach the #Goal and we think
-  ; a path exists
-  while [not [visited?] of #Goal and exists?]
-  [
-    ; We only work on the valid pacthes that are active
-    let options #valid-map with [active?]
-    ; If any
-    ifelse any? options
-    [
-      ; Take one of the active patches with minimal expected cost
-      ask min-one-of options [Total-expected-cost #Goal]
-      [
-        ; Store its real cost (to reach it) to compute the real cost
-        ; of its children
-        let Cost-path-father Cost-path
-        ; and deactivate it, because its children will be computed right now
-        set active? false
-        ; Compute its valid neighbors
-        let valid-neighbors neighbors with [member? self #valid-map]
-        ask valid-neighbors
-        [
-          ; There are 2 types of valid neighbors:
-          ;   - Those that have never been visited (therefore, the
-          ;       path we are building is the best for them right now)
-          ;   - Those that have been visited previously (therefore we
-          ;       must check if the path we are building is better or not,
-          ;       by comparing its expected length with the one stored in
-          ;       the patch)
-          ; One trick to work with both type uniformly is to give for the
-          ; first case an upper bound big enough to be sure that the new path
-          ; will always be smaller.
-          let t ifelse-value visited? [ Total-expected-cost #Goal] [2 ^ 20]
-          ; If this temporal cost is worse than the new one, we substitute the
-          ; information in the patch to store the new one (with the neighbors
-          ; of the first case, it will be always the case)
-          if t > (Cost-path-father + distance myself + Heuristic #Goal)
-          [
-            ; The current patch becomes the father of its neighbor in the new path
-            set father myself
-            set visited? true
-            set active? true
-            ; and store the real cost in the neighbor from the real cost of its father
-            set Cost-path Cost-path-father + distance father
-            set Final-Cost precision Cost-path 3
-          ]
-        ]
-      ]
-    ]
-    ; If there are no more options, there is no path between #Start and #Goal
-    [
-      set exists? false
-    ]
-  ]
-  ; After the searching loop, if there exists a path
-  ifelse exists?
-  [
-    ; We extract the list of patches in the path, form #Start to #Goal
-    ; by jumping back from #Goal to #Start by using the fathers of every patch
-    let current #Goal
-    set Final-Cost (precision [Cost-path] of #Goal 3)
-    let rep (list current)
-    While [current != #Start]
-    [
-      set current [father] of current
-      set rep fput current rep
-    ]
-    report rep
-  ]
-  [
-    ; Otherwise, there is no path, and we return False
-    report false
-  ]
-end
-
-to go
-  tick
-  ifelse begun = 0 [
-    set path  A* Start Goal p-valids
-    set begun 1
-    pathmap
-  ]
-  [
-    if path != [] and path != false [
-      ask tank 0 [
-    ifelse color-patchhere = green[ set velocity 0.2 ][set velocity 0.1]
-    face first path
-    ifelse distance first path < 1
-    [
-      fd velocity
-      set path remove-item 0 path
-    ]
-    [
-      fd velocity
-    ]
-    ]
-  ]
-  ]
-end
-
-to-report color-patchhere ;report the patch that the agent is sitting at
-  let col 0
-  ask tank 0[
-    ask patch-here[
-      set col pcolor
-    ]
-  ]
-  report col
-end
-
-to pathmap
-  ;foreach path [trace -> ask trace[set pcolor grey]]
-  ask Start [set pcolor white]
-  ask Goal [set pcolor red]
-end
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
 10
-2181
-1202
+647
+448
 -1
 -1
 13.0
@@ -302,52 +14,18 @@ GRAPHICS-WINDOW
 1
 1
 0
-0
-0
 1
-0
-150
-0
-90
+1
+1
+-16
+16
+-16
+16
 0
 0
 1
 ticks
 30.0
-
-BUTTON
-64
-107
-154
-140
-NIL
-setup-map\n
-NIL
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
-
-BUTTON
-81
-341
-152
-382
-NIL
-go
-T
-1
-T
-OBSERVER
-NIL
-NIL
-NIL
-NIL
-1
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -432,6 +110,55 @@ Circle -16777216 true false 135 90 30
 Line -16777216 false 150 105 195 60
 Line -16777216 false 150 105 105 60
 
+calunga_arp
+true
+0
+Polygon -7500403 true true 240 270 240 225 225 150 180 90 150 75 150 300 240 300 240 270
+Polygon -7500403 true true 60 270 60 225 75 150 120 90 150 75 150 300 60 300 60 270
+Polygon -7500403 true true 90 165 90 165 90 165
+Polygon -16777216 true false 210 180 210 195 150 225 150 210 210 180
+Polygon -16777216 true false 90 180 90 195 150 225 150 210 90 180
+Polygon -16777216 true false 141 105 141 149 149 148 149 126 156 125 160 124 162 118 161 111 157 106 153 105 150 105 146 105
+Polygon -16777216 true false 146 111
+Polygon -7500403 true true 156 115
+Polygon -7500403 true true 147 111 147 121 153 121 156 117 155 111 151 110
+
+calunga_tank_ally
+true
+0
+Rectangle -7500403 true true 45 90 255 225
+Line -16777216 false 45 225 255 90
+Circle -16777216 true false 90 45 30
+Circle -16777216 true false 135 45 30
+Circle -16777216 true false 180 45 30
+Line -16777216 false 90 120 210 120
+Line -16777216 false 90 120 75 135
+Line -16777216 false 75 135 75 165
+Line -16777216 false 75 165 75 180
+Line -16777216 false 75 180 90 195
+Line -16777216 false 90 195 210 195
+Line -16777216 false 225 165 225 180
+Line -16777216 false 225 135 225 165
+Line -16777216 false 210 120 225 135
+Line -16777216 false 210 195 225 180
+
+calunga_tank_enemy
+true
+0
+Polygon -7500403 true true 150 45 45 150 150 255 255 150 150 45
+Line -16777216 false 195 180 105 180
+Line -16777216 false 105 120 195 120
+Line -16777216 false 195 180 210 165
+Line -16777216 false 210 135 210 165
+Line -16777216 false 195 120 210 135
+Line -16777216 false 90 135 90 165
+Line -16777216 false 105 180 90 165
+Line -16777216 false 105 120 90 135
+Line -16777216 false 98 204 204 98
+Circle -16777216 true false 93 13 24
+Circle -16777216 true false 136 12 24
+Circle -16777216 true false 174 12 24
+
 car
 false
 0
@@ -469,12 +196,6 @@ dot
 false
 0
 Circle -7500403 true true 90 90 120
-
-exclamation
-false
-0
-Circle -7500403 true true 103 198 95
-Polygon -7500403 true true 135 180 165 180 210 30 180 0 120 0 90 30
 
 face happy
 false
@@ -616,30 +337,6 @@ false
 0
 Polygon -7500403 true true 151 1 185 108 298 108 207 175 242 282 151 216 59 282 94 175 3 108 116 108
 
-tank
-true
-0
-Rectangle -7500403 true true 144 0 159 105
-Rectangle -6459832 true false 195 45 255 255
-Rectangle -16777216 false false 195 45 255 255
-Rectangle -6459832 true false 45 45 105 255
-Rectangle -16777216 false false 45 45 105 255
-Line -16777216 false 45 75 255 75
-Line -16777216 false 45 105 255 105
-Line -16777216 false 45 60 255 60
-Line -16777216 false 45 240 255 240
-Line -16777216 false 45 225 255 225
-Line -16777216 false 45 195 255 195
-Line -16777216 false 45 150 255 150
-Polygon -7500403 true true 90 60 60 90 60 240 120 255 180 255 240 240 240 90 210 60
-Rectangle -16777216 false false 135 105 165 120
-Polygon -16777216 false false 135 120 105 135 101 181 120 225 149 234 180 225 199 182 195 135 165 120
-Polygon -16777216 false false 240 90 210 60 211 246 240 240
-Polygon -16777216 false false 60 90 90 60 89 246 60 240
-Polygon -16777216 false false 89 247 116 254 183 255 211 246 211 237 89 236
-Rectangle -16777216 false false 90 60 210 90
-Rectangle -16777216 false false 143 0 158 105
-
 target
 false
 0
@@ -721,7 +418,7 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.2.2
+NetLogo 6.2.1
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
