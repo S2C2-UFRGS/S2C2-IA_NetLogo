@@ -257,7 +257,7 @@ to go
   [
     if path != [] and path != false [
       ask tank 0 [
-    ifelse color-patchhere = green[ set velocity 0.2 ][set velocity 0.08]
+    ifelse color-patchhere = green[ set velocity 0.2 ][set velocity 0.1]
     face first path
     ifelse distance first path < 1
     [
